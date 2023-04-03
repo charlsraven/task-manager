@@ -3,10 +3,13 @@ package com.techno_3_team.task_manager
 import android.os.Bundle
 import android.util.Log
 import android.view.*
+import android.widget.Button
 import android.widget.ImageButton
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.GravityCompat
+import com.google.firebase.auth.FirebaseAuth
 import com.techno_3_team.task_manager.databinding.ActivityMainBinding
 import com.techno_3_team.task_manager.structures.ListOfLists
 import com.techno_3_team.task_manager.fragments.ListsSettingsFragment
@@ -21,12 +24,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var listOfLists: ListOfLists
     private var sortOrder = SortOrder.BY_DATE
     private var isDay: Boolean = true
-
+    private lateinit var auth : FirebaseAuth
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         mainBinding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(mainBinding.root)
+
+        auth = FirebaseAuth.getInstance()
+        val name = "вы авторизовались как " + intent.getStringExtra("name")
+        Toast.makeText(this, name, Toast.LENGTH_SHORT).show()
 
         val toolbar: Toolbar = findViewById(mainBinding.toolbar.id)
         setSupportActionBar(toolbar)
@@ -124,5 +131,16 @@ class MainActivity : AppCompatActivity() {
         } else {
             imgBt.setImageResource(R.drawable.baseline_nightlight_round_24)
         }
+    }
+
+    private fun signOut(){
+        findViewById<Button>(R.id.btGoogleSideBAr).setOnClickListener {
+            auth.signOut()
+            reloadTasks()
+        }
+    }
+
+    private fun reloadTasks() {
+        TODO("Not yet implemented")
     }
 }

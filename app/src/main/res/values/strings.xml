@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">task-manager</string>
     <string name="appwidget_text">EXAMPLE</string>
+    <string name="web_client_id">1047851853870-vmcuf6f5rpafonuq96om2pnefac136k1.apps.googleusercontent.com</string>
     <string name="add_widget">Add widget</string>
 
     <string name="list1">list 1</string>
