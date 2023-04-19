@@ -18,6 +18,9 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentTransaction
 import androidx.preference.PreferenceManager
+import com.google.android.gms.auth.api.identity.BeginSignInRequest
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.identity.SignInClient
 import com.techno_3_team.task_manager.databinding.LoginFragmentBinding
 import com.techno_3_team.task_manager.databinding.MainFragmentBinding
 import com.techno_3_team.task_manager.fragments.ListsSettingsFragment
@@ -65,6 +68,9 @@ class MainActivity : AppCompatActivity(), Navigator {
     private var authorized = true
 //    private var authorized = false
 
+    private lateinit var oneTapClient: SignInClient
+    private lateinit var signInRequest: BeginSignInRequest
+
     override fun onCreate(savedInstanceState: Bundle?) {
         initTheme()
         super.onCreate(savedInstanceState)
@@ -74,11 +80,15 @@ class MainActivity : AppCompatActivity(), Navigator {
             loginBinding = LoginFragmentBinding.inflate(layoutInflater)
             setContentView(loginBinding.root)
 
-            loginBinding.continueWithoutAutorization.setOnClickListener {
+            loginBinding.continueWithoutAuthorization.setOnClickListener {
                 initMainFragment(savedInstanceState)
                 preference.edit()
                     .putBoolean(AUTH_KEY, false)
                     .apply()
+            }
+            loginBinding.continueWithGoogle.setOnClickListener{
+                Log.e("tag", "clicked on google authorization")
+                startAuthorization()
             }
         } else {
             initMainFragment(savedInstanceState)
@@ -359,6 +369,21 @@ class MainActivity : AppCompatActivity(), Navigator {
             mainBinding.sideBar.accountImage.setImageResource(R.drawable.google)
             mainBinding.sideBar.googleAccount.setText(R.string.continue_with_google)
         }
+    }
+
+    private fun startAuthorization() {
+        oneTapClient = Identity.getSignInClient(this)
+        signInRequest = BeginSignInRequest.builder()
+            .setGoogleIdTokenRequestOptions(
+                BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
+                    .setSupported(true)
+                    .setServerClientId(getString(R.string.web_client_id))
+                    // Only show accounts previously used to sign in.
+                    .setFilterByAuthorizedAccounts(true)
+                    .build())
+            // Automatically sign in when exactly one credential is retrieved.
+            .setAutoSelectEnabled(true)
+            .build()
     }
 
 
