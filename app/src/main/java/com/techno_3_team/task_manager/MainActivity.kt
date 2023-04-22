@@ -2,6 +2,7 @@ package com.techno_3_team.task_manager
 
 import android.animation.AnimatorListenerAdapter
 import android.app.Activity
+import android.content.IntentSender
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.Bundle
@@ -9,6 +10,8 @@ import android.os.Parcelable
 import android.util.Log
 import android.view.*
 import android.widget.ImageButton
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.os.bundleOf
@@ -21,6 +24,9 @@ import androidx.preference.PreferenceManager
 import com.google.android.gms.auth.api.identity.BeginSignInRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.SignInClient
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
+import com.google.android.material.snackbar.Snackbar
 import com.techno_3_team.task_manager.databinding.LoginFragmentBinding
 import com.techno_3_team.task_manager.databinding.MainFragmentBinding
 import com.techno_3_team.task_manager.fragments.ListsSettingsFragment
@@ -68,8 +74,53 @@ class MainActivity : AppCompatActivity(), Navigator {
     private var authorized = true
 //    private var authorized = false
 
-    private lateinit var oneTapClient: SignInClient
-    private lateinit var signInRequest: BeginSignInRequest
+    private var oneTapClient: SignInClient? = null
+    private var signUpRequest: BeginSignInRequest? = null
+    private var signInRequest: BeginSignInRequest? = null
+
+    private val oneTapResult =
+        registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            try {
+                val credential = oneTapClient?.getSignInCredentialFromIntent(result.data)
+                val idToken = credential?.googleIdToken
+                when {
+                    idToken != null -> {
+                        // Got an ID token from Google. Use it to authenticate
+                        // with your backend.
+                        preference.edit().putString("idToken", idToken)
+                        val msg = "idToken $idToken"
+                        Snackbar.make(mainBinding.root, msg, Snackbar.LENGTH_INDEFINITE).show()
+                        Log.e("onActivityResult", msg)
+                    }
+                    else -> {
+                        // Shouldn't happen.
+                        Log.e("onActivityResult", "No ID token or password!")
+                    }
+                }
+            } catch (e: ApiException) {
+                when (e.statusCode) {
+                    CommonStatusCodes.CANCELED -> {
+                        Log.e("onActivityResult", "One-tap dialog was closed.")
+                        // Don't re-prompt the user.
+                        showOneTapUI = false
+                    }
+                    CommonStatusCodes.NETWORK_ERROR -> {
+                        Log.e("onActivityResult", "One-tap encountered a network error.")
+                        // Try again or just ignore.
+                    }
+                    else -> {
+                        Log.e(
+                            "onActivityResult", "Couldn't get credential from result." +
+                                    " (${e.localizedMessage})"
+                        )
+                    }
+                }
+            }
+
+        }
+    private val serverClientId by lazy { getString(R.string.web_client_id) }
+
+    private var showOneTapUI = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         initTheme()
@@ -86,7 +137,7 @@ class MainActivity : AppCompatActivity(), Navigator {
                     .putBoolean(AUTH_KEY, false)
                     .apply()
             }
-            loginBinding.continueWithGoogle.setOnClickListener{
+            loginBinding.continueWithGoogle.setOnClickListener {
                 Log.e("tag", "clicked on google authorization")
                 startAuthorization()
             }
@@ -359,7 +410,7 @@ class MainActivity : AppCompatActivity(), Navigator {
 
 
     private fun setAccountButton() {
-        if(authorized){
+        if (authorized) {
             //TODO: получить имя пользователя
             val accountName = null
             mainBinding.sideBar.googleAccount.text = accountName
@@ -372,18 +423,71 @@ class MainActivity : AppCompatActivity(), Navigator {
     }
 
     private fun startAuthorization() {
-        oneTapClient = Identity.getSignInClient(this)
+        signUpRequest = BeginSignInRequest.builder()
+            .setGoogleIdTokenRequestOptions(
+                BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
+                    .setSupported(true)
+                    .setServerClientId(serverClientId)
+                    // Show all accounts on the device.
+                    .setFilterByAuthorizedAccounts(false)
+                    .build()
+            )
+            // Automatically sign in when exactly one credential is retrieved.
+            .setAutoSelectEnabled(false)
+            .build()
         signInRequest = BeginSignInRequest.builder()
             .setGoogleIdTokenRequestOptions(
                 BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
                     .setSupported(true)
-                    .setServerClientId(getString(R.string.web_client_id))
+                    // Your server's client ID, not your Android client ID.
+                    .setServerClientId(serverClientId)
                     // Only show accounts previously used to sign in.
                     .setFilterByAuthorizedAccounts(true)
-                    .build())
+                    .build()
+            )
             // Automatically sign in when exactly one credential is retrieved.
             .setAutoSelectEnabled(true)
             .build()
+        oneTapClient = Identity.getSignInClient(this)
+        displaySignIn()
+    }
+
+    private fun displaySignIn() {
+        oneTapClient?.beginSignIn(signInRequest!!)
+            ?.addOnSuccessListener(this) { result ->
+                try {
+                    val ib = IntentSenderRequest.Builder(result.pendingIntent.intentSender).build()
+                    oneTapResult.launch(ib)
+                } catch (e: IntentSender.SendIntentException) {
+                    Log.e("displaySignIn", "Couldn't start One Tap UI: ${e.localizedMessage}")
+                }
+            }
+            ?.addOnFailureListener(this) { e ->
+                // No Google Accounts found. Just continue presenting the signed-out UI.
+                displaySignUp()
+                Log.e("displaySignIn", e.localizedMessage!!)
+            }
+    }
+
+    private fun displaySignUp() {
+        oneTapClient?.beginSignIn(signUpRequest!!)
+            ?.addOnSuccessListener(this) { result ->
+                try {
+                    val ib = IntentSenderRequest.Builder(result.pendingIntent.intentSender).build()
+                    oneTapResult.launch(ib)
+                } catch (e: IntentSender.SendIntentException) {
+                    Log.e("displaySignUp", "Couldn't start One Tap UI: ${e.localizedMessage}")
+                }
+            }
+            ?.addOnFailureListener(this) { e ->
+                // No Google Accounts found. Just continue presenting the signed-out UI.
+                displaySignUp()
+                Log.e("displaySignUp", e.localizedMessage!!)
+            }
+    }
+
+    private fun signOut() {
+        Identity.getSignInClient(this).signOut()
     }
 
 
