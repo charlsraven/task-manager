@@ -136,9 +136,9 @@ class MainActivity : AppCompatActivity(), Navigator {
                     .putBoolean(AUTH_KEY, false)
                     .apply()
             }
-            startAuthorization()
             loginBinding.continueWithGoogle.setOnClickListener {
                 Log.e("tag", "clicked on google authorization")
+                startAuthorization()
                 displaySignIn()
             }
         } else {
@@ -405,6 +405,8 @@ class MainActivity : AppCompatActivity(), Navigator {
             Log.e("accountManagement", "managementHidden $managementHidden")
         } else {
             //авторизация -- войти
+            startAuthorization()
+            displaySignIn()
         }
     }
 
