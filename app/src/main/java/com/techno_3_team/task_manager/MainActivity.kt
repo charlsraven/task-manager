@@ -71,8 +71,7 @@ class MainActivity : AppCompatActivity(), Navigator {
 
     //временная переменная до создания логики авторизированного пользователя
     //TODO: инициализировать переменную в правильных местах
-    private var authorized = true
-//    private var authorized = false
+    private var authorized = false
 
     private var oneTapClient: SignInClient? = null
     private var signUpRequest: BeginSignInRequest? = null
@@ -137,9 +136,10 @@ class MainActivity : AppCompatActivity(), Navigator {
                     .putBoolean(AUTH_KEY, false)
                     .apply()
             }
+            startAuthorization()
             loginBinding.continueWithGoogle.setOnClickListener {
                 Log.e("tag", "clicked on google authorization")
-                startAuthorization()
+                displaySignIn()
             }
         } else {
             initMainFragment(savedInstanceState)
@@ -449,13 +449,13 @@ class MainActivity : AppCompatActivity(), Navigator {
             .setAutoSelectEnabled(true)
             .build()
         oneTapClient = Identity.getSignInClient(this)
-        displaySignIn()
     }
 
     private fun displaySignIn() {
         oneTapClient?.beginSignIn(signInRequest!!)
             ?.addOnSuccessListener(this) { result ->
                 try {
+                    Log.e("displaySignIn", "siginig in")
                     val ib = IntentSenderRequest.Builder(result.pendingIntent.intentSender).build()
                     oneTapResult.launch(ib)
                 } catch (e: IntentSender.SendIntentException) {
@@ -473,6 +473,7 @@ class MainActivity : AppCompatActivity(), Navigator {
         oneTapClient?.beginSignIn(signUpRequest!!)
             ?.addOnSuccessListener(this) { result ->
                 try {
+                    Log.e("displaySignUp", "siginig up")
                     val ib = IntentSenderRequest.Builder(result.pendingIntent.intentSender).build()
                     oneTapResult.launch(ib)
                 } catch (e: IntentSender.SendIntentException) {
